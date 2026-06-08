@@ -1,0 +1,64 @@
+{% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block
+page_title %}Dashboard Statistik{% endblock %} {% block content %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon">
+      <i class="fas fa-user-graduate"></i>
+    </div>
+    <div class="stat-details">
+      <h3 id="santriCount">0</h3>
+      <p>Total Santri</p>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="color: #0288d1">
+      <i class="fas fa-chalkboard-teacher"></i>
+    </div>
+    <div class="stat-details">
+      <h3 id="guruCount">0</h3>
+      <p>Total Guru</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="color: var(--primary-color); margin-bottom: 15px">
+    <i class="fas fa-info-circle"></i> Selamat Datang
+  </h3>
+  <p style="color: #555; line-height: 1.6">
+    Selamat datang di Sistem Informasi Manajemen Data Pesantren Daar El-Haq.
+    Sistem ini memudahkan Anda untuk mengelola data santri dan guru melalui
+    fitur import data massal dari file Excel.
+  </p>
+  <br />
+  <a href="{{ url_for('import_page') }}" class="btn btn-primary"
+    ><i class="fas fa-file-excel"></i> Mulai Import Data</a
+  >
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    const santriEl = document.getElementById("santriCount");
+    const guruEl = document.getElementById("guruCount");
+    
+    santriEl.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 1rem;"></i>';
+    guruEl.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 1rem;"></i>';
+
+    try {
+      const res = await fetch("/api/dashboard/stats");
+      if (res.ok) {
+        const data = await res.json();
+        santriEl.innerText = data.santri;
+        guruEl.innerText = data.guru;
+      } else {
+        santriEl.innerText = "Error";
+        guruEl.innerText = "Error";
+      }
+    } catch (err) {
+      console.error("Failed to fetch stats", err);
+      santriEl.innerText = "Error";
+      guruEl.innerText = "Error";
+    }
+  });
+</script>
+{% endblock %}

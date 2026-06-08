@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Validasi Data{% endblock %}
+{% block page_title %}Hasil Validasi Data{% endblock %}
+
+{% block content %}
+<div class="stepper">
+    <div class="step completed"><div class="circle"><i class="fas fa-check"></i></div>Upload</div>
+    <div class="step completed"><div class="circle"><i class="fas fa-check"></i></div>Preview</div>
+    <div class="step completed"><div class="circle"><i class="fas fa-check"></i></div>Mapping</div>
+    <div class="step active"><div class="circle">4</div>Validasi</div>
+    <div class="step"><div class="circle">5</div>Simulasi</div>
+    <div class="step"><div class="circle">6</div>Hasil</div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="stat-card" style="border-left-color: #2196F3;">
+        <div class="stat-icon" style="color: #2196F3;"><i class="fas fa-database"></i></div>
+        <div class="stat-details">
+            <h3 id="vTotal">0</h3>
+            <p>Total Baris Data</p>
+        </div>
+    </div>
+    <div class="stat-card" style="border-left-color: #4CAF50;">
+        <div class="stat-icon" style="color: #4CAF50;"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-details">
+            <h3 id="vValid">0</h3>
+            <p>Baris Valid</p>
+        </div>
+    </div>
+    <div class="stat-card" style="border-left-color: #F44336;">
+        <div class="stat-icon" style="color: #F44336;"><i class="fas fa-times-circle"></i></div>
+        <div class="stat-details">
+            <h3 id="vInvalid">0</h3>
+            <p>Baris Tidak Valid</p>
+        </div>
+    </div>
+</div>
+
+    <div class="table-responsive">
+        <table id="validTable">
+            <thead>
+                <tr>
+                    <th>Baris Excel</th>
+                    <th>Tipe Import</th>
+                    <th>Nama</th>
+                    <th>Unique Key (NISN/NIP)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="validBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" id="errorCard" style="display: none; border-left: 5px solid var(--danger);">
+    <h3 style="color: var(--danger); margin-bottom: 15px;"><i class="fas fa-exclamation-triangle"></i> Detail Data Tidak Valid</h3>
+    <p style="margin-bottom: 15px;">Anda dapat memilih untuk melewati (skip) baris yang tidak valid atau tetap melanjutkan import.</p>
+    <div class="form-check" style="margin-bottom: 15px;">
+        <input class="form-check-input" type="checkbox" id="skipInvalid" checked>
+        <label class="form-check-label" for="skipInvalid">
+            Skip (lewati) baris yang tidak valid dan lanjutkan import baris yang valid saja
+        </label>
+    </div>
+    <div class="table-responsive">
+        <table id="errorTable">
+            <thead>
+                <tr>
+                    <th>Baris Excel</th>
+                    <th>Data Asli</th>
+                    <th>Data Setelah Transformasi</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody id="errorBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div style="display: flex; justify-content: space-between; margin-top: 20px;">
+    <a href="{{ url_for('mapping_page') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Kembali Mapping</a>
+    <button onclick="nextStep()" class="btn btn-primary" id="btnNext">Lanjut Simulasi <i class="fas fa-arrow-right"></i></button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!checkWorkflowState(['validation'])) return;
+        
+        const state = getSessionData();
+        const v = state.validation;
+        
+        document.getElementById('vTotal').innerText = v.total;
+        document.getElementById('vValid').innerText = v.valid_count;
+        document.getElementById('vInvalid').innerText = v.invalid_count;
+        
+        if (v.valid_count > 0) {
+            const vbody = document.getElementById('validBody');
+            v.valid_rows.forEach(row => {
+                const tr = document.createElement('tr');
+                const badgeClass = row.import_type === 'Baru' ? 'badge-success' : 'badge-warning';
+                const name = row.transformed.nama_lengkap || row.transformed.nama || '-';
+                const key = row.transformed.nisn || row.transformed.nip || '-';
+                
+                tr.innerHTML = `
+                    <td>${row.original_index + 2}</td>
+                    <td><span class="badge ${badgeClass}">${row.import_type}</span></td>
+                    <td>${name}</td>
+                    <td><code>${key}</code></td>
+                    <td><i class="fas fa-check-circle" style="color: #4CAF50;"></i> Siap</td>
+                `;
+                vbody.appendChild(tr);
+            });
+        }
+        
+        if (v.invalid_count > 0) {
+            document.getElementById('errorCard').style.display = 'block';
+            const tbody = document.getElementById('errorBody');
+            
+            v.invalid_rows.slice(0, 50).forEach(row => { // Show up to 50 errors
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.original_index + 2}</td>
+                    <td><pre style="font-size: 0.8rem; margin:0; white-space: pre-wrap;">${JSON.stringify(row.data, null, 2)}</pre></td>
+                    <td><pre style="font-size: 0.8rem; margin:0; white-space: pre-wrap; color: #4CAF50;">${JSON.stringify(row.transformed, null, 2)}</pre></td>
+                    <td><span class="badge badge-danger">${row.errors.join(', ')}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // Always allow proceed (with skip option)
+        const btn = document.getElementById('btnNext');
+        btn.disabled = false;
+    });
+    
+    function nextStep() {
+        const state = getSessionData();
+        state.skipInvalid = document.getElementById('skipInvalid').checked;
+        sessionStorage.setItem('validation', JSON.stringify(state.validation));
+        sessionStorage.setItem('skipInvalid', state.skipInvalid);
+        window.location.href = '/simulation';
+    }
+</script>
+{% endblock %}

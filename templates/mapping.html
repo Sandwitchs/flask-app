@@ -1,0 +1,208 @@
+{% extends "base.html" %} {% block title %}Pemetaan Kolom{% endblock %} {% block
+page_title %}Pemetaan Kolom (Mapping){% endblock %} {% block content %}
+<div class="stepper">
+  <div class="step completed">
+    <div class="circle"><i class="fas fa-check"></i></div>
+    Upload
+  </div>
+  <div class="step completed">
+    <div class="circle"><i class="fas fa-check"></i></div>
+    Preview
+  </div>
+  <div class="step active">
+    <div class="circle">3</div>
+    Mapping
+  </div>
+  <div class="step">
+    <div class="circle">4</div>
+    Validasi
+  </div>
+  <div class="step">
+    <div class="circle">5</div>
+    Simulasi
+  </div>
+  <div class="step">
+    <div class="circle">6</div>
+    Hasil
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin-bottom: 20px">Petakan Kolom Database dengan Kolom Excel</h3>
+  <p style="margin-bottom: 20px; color: #666">
+    Silakan pilih kolom Excel yang sesuai dengan field database di bawah ini.
+  </p>
+
+  <form id="mappingForm" onsubmit="handleMapping(event)">
+    <div id="mappingFields"></div>
+
+    <div style="margin-top: 20px; display: flex; gap: 10px">
+      <a href="{{ url_for('preview_page') }}" class="btn btn-secondary"
+        ><i class="fas fa-arrow-left"></i> Kembali</a
+      >
+      <button type="submit" class="btn btn-primary" id="btnNext">
+        Lanjut Validasi <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  // Schema definitions
+  const dbSchemas = {
+    santri: [
+      { field: "no", label: "No", required: false },
+      { field: "nama_lengkap", label: "Nama Lengkap (*)", required: true },
+      {
+        field: "nisn",
+        label: "NISN - Nomor Induk Siswa Nasional (*)",
+        required: true,
+      },
+      { field: "nik", label: "NIK", required: false },
+      { field: "tempat_lahir", label: "Tempat Lahir", required: false },
+      { field: "tanggal_lahir", label: "Tanggal Lahir", required: false },
+      { field: "tingkat_rombel", label: "Tingkat - Rombel", required: false },
+      { field: "umur", label: "Umur", required: false },
+      { field: "status", label: "Status", required: false },
+      { field: "jenis_kelamin", label: "Jenis Kelamin", required: false },
+      { field: "alamat", label: "Alamat", required: false },
+      { field: "no_telepon", label: "No Telepon", required: false },
+      { field: "kebutuhan_khusus", label: "Kebutuhan Khusus", required: false },
+      { field: "disabilitas", label: "Disabilitas", required: false },
+      { field: "nomor_kip_pip", label: "Nomor KIP/PIP", required: false },
+      {
+        field: "nama_ayah_kandung",
+        label: "Nama Ayah Kandung",
+        required: false,
+      },
+      { field: "nama_ibu_kandung", label: "Nama Ibu Kandung", required: false },
+      { field: "nama_wali", label: "Nama Wali", required: false },
+    ],
+    guru: [
+      { field: "nip", label: "NIP - Nomor Induk Pegawai (*)", required: true },
+      { field: "nama", label: "Nama Guru (*)", required: true },
+      { field: "mata_pelajaran", label: "Mata Pelajaran", required: false },
+    ],
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!checkWorkflowState(["file_id", "headers", "target_table"])) return;
+
+    const state = getSessionData();
+    const schema = dbSchemas[state.target_table];
+    const container = document.getElementById("mappingFields");
+
+    let html = '<div class="table-responsive"><table style="width: 100%;">';
+    html +=
+      '<thead><tr><th style="width: 40%;">Field Database</th><th>Kolom Excel</th></tr></thead><tbody>';
+
+    schema.forEach((item) => {
+      html += `<tr>
+            <td><strong>${item.label}</strong></td>
+            <td>
+                <select name="mapping_${item.field}" class="form-control" ${item.required ? "required" : ""}>
+                    <option value="">-- Pilih Kolom Excel --</option>
+                    ${state.headers.map((h) => `<option value="${h}">${h}</option>`).join("")}
+                </select>
+            </td>
+        </tr>`;
+    });
+
+    html += "</tbody></table></div>";
+    container.innerHTML = html;
+
+    // Auto-select if names roughly match
+    schema.forEach((item) => {
+      const select = document.querySelector(
+        `select[name="mapping_${item.field}"]`,
+      );
+
+      // Try exact match first
+      let matchedHeader = state.headers.find(
+        (h) => h.toLowerCase() === item.label.toLowerCase().replace(" (*)", ""),
+      );
+
+      // Try matching field name
+      if (!matchedHeader) {
+        matchedHeader = state.headers.find((h) =>
+          h.toLowerCase().includes(item.field.replace(/_/g, " ")),
+        );
+      }
+
+      // Try matching first part of field name
+      if (!matchedHeader) {
+        matchedHeader = state.headers.find((h) =>
+          h.toLowerCase().includes(item.field.split("_")[0].toLowerCase()),
+        );
+      }
+
+      // Special cases for better matching
+      if (!matchedHeader && item.field === "nomor_kip_pip") {
+        matchedHeader = state.headers.find(
+          (h) =>
+            h.toLowerCase().includes("kip") || h.toLowerCase().includes("pip"),
+        );
+      }
+      if (!matchedHeader && item.field === "no_telepon") {
+        matchedHeader = state.headers.find(
+          (h) =>
+            h.toLowerCase().includes("telepon") ||
+            h.toLowerCase().includes("hp"),
+        );
+      }
+
+      if (matchedHeader) select.value = matchedHeader;
+    });
+  });
+
+  async function handleMapping(e) {
+    e.preventDefault();
+
+    const state = getSessionData();
+    const schema = dbSchemas[state.target_table];
+    const mapping = {};
+
+    schema.forEach((item) => {
+      const val = document.querySelector(
+        `select[name="mapping_${item.field}"]`,
+      ).value;
+      if (val) {
+        mapping[item.field] = val;
+      }
+    });
+
+    sessionStorage.setItem("mapping", JSON.stringify(mapping));
+
+    // Trigger validation API call directly from here to simplify flow
+    const btn = document.getElementById("btnNext");
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memvalidasi...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch("/api/import/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file_id: state.file_id,
+          target_table: state.target_table,
+          mapping: mapping,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        sessionStorage.setItem("validation", JSON.stringify(data));
+        window.location.href = "/validation";
+      } else {
+        alert("Validasi gagal: " + data.message);
+        btn.disabled = false;
+        btn.innerHTML = 'Lanjut Validasi <i class="fas fa-arrow-right"></i>';
+      }
+    } catch (err) {
+      alert("Kesalahan server saat validasi.");
+      btn.disabled = false;
+      btn.innerHTML = 'Lanjut Validasi <i class="fas fa-arrow-right"></i>';
+    }
+  }
+</script>
+{% endblock %}

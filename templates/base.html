@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIM Data Pesantren - {% block title %}{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- FontAwesome -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <!-- Custom CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+    <script>
+      // Global variables
+      const API_BASE = "/api";
+    </script>
+  </head>
+  <body>
+    {% if request.endpoint != 'login_page' %}
+    <!-- Sidebar Overlay (mobile) -->
+    <div
+      class="sidebar-overlay"
+      id="sidebarOverlay"
+      onclick="toggleSidebar()"
+    ></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2><i class="fas fa-mosque"></i> SIM Pesantren</h2>
+        <p style="font-size: 0.8rem; opacity: 0.8; margin-top: 5px">
+          Daar El-Haq
+        </p>
+      </div>
+      <ul class="sidebar-menu">
+        <li>
+          <a
+            href="{{ url_for('dashboard_page') }}"
+            class="{{ 'active' if request.endpoint == 'dashboard_page' else '' }}"
+          >
+            <i class="fas fa-home"></i> Dashboard
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('import_page') }}"
+            class="{{ 'active' if request.endpoint in ['import_page', 'preview_page', 'mapping_page', 'validation_page', 'simulation_page', 'result_page'] else '' }}"
+          >
+            <i class="fas fa-file-excel"></i> Import Data Excel
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('logs_page') }}"
+            class="{{ 'active' if request.endpoint == 'logs_page' else '' }}"
+          >
+            <i class="fas fa-history"></i> Log Import
+          </a>
+        </li>
+        <li
+          style="
+            margin-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 20px;
+          "
+        >
+          <a
+            href="{{ url_for('change_password_page') }}"
+            class="{{ 'active' if request.endpoint == 'change_password_page' else '' }}"
+          >
+            <i class="fas fa-key"></i> Ubah Password
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Topbar -->
+      <div class="topbar">
+        <button
+          class="hamburger-btn"
+          id="hamburgerBtn"
+          onclick="toggleSidebar()"
+        >
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar-title">
+          {% block page_title %}Dashboard{% endblock %}
+        </div>
+        <div class="user-info">
+          <span class="user-greeting"
+            ><i class="fas fa-user-circle"></i> Halo, Admin</span
+          >
+          <button class="btn-logout" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Keluar
+          </button>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="content">{% block content %}{% endblock %}</div>
+    </div>
+
+    <!-- Modal Konfirmasi Import -->
+    <div
+      id="importModal"
+      class="modal"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+      "
+    >
+      <div
+        class="modal-content"
+        style="
+          background-color: white;
+          margin: 10% auto;
+          padding: 30px;
+          border-radius: 12px;
+          max-width: 500px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        "
+      >
+        <h3 style="color: var(--primary-color); margin-bottom: 20px">
+          <i class="fas fa-exclamation-triangle"></i> Konfirmasi Import
+        </h3>
+        <p id="modalMessage" style="margin-bottom: 25px; line-height: 1.6"></p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end">
+          <button id="btnCancelImport" class="btn btn-secondary">
+            <i class="fas fa-times"></i> Batal
+          </button>
+          <button id="btnConfirmImport" class="btn btn-primary">
+            <i class="fas fa-check"></i> Lanjutkan Import
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div
+      id="toastContainer"
+      style="position: fixed; top: 20px; right: 20px; z-index: 3000"
+    ></div>
+
+    <script>
+      function toggleSidebar() {
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("sidebarOverlay");
+        sidebar.classList.toggle("open");
+        overlay.classList.toggle("active");
+      }
+
+      async function logout() {
+        try {
+          const res = await fetch("/api/logout", { method: "POST" });
+          if (res.ok) window.location.href = "/";
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // Global variable for import callback
+      let confirmImportCallback = null;
+
+      function openImportModal(
+        validCount,
+        invalidCount,
+        targetTable,
+        callback,
+      ) {
+        confirmImportCallback = callback;
+        const message = `
+                Anda akan mengimport data berikut:<br><br>
+                <strong>Tabel Tujuan:</strong> ${targetTable.toUpperCase()}<br>
+                <strong>Data Valid:</strong> ${validCount} baris<br>
+                <strong>Data Invalid:</strong> ${invalidCount} baris (akan diskip)<br><br>
+                <em>Risiko:</em> Data akan ditambahkan ke database dan bisa di-rollback nanti.
+            `;
+        document.getElementById("modalMessage").innerHTML = message;
+        document.getElementById("importModal").style.display = "block";
+      }
+
+      function closeImportModal() {
+        confirmImportCallback = null;
+        document.getElementById("importModal").style.display = "none";
+      }
+
+      function showToast(title, message, type = "info") {
+        const container = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        const colors = {
+          success: "#4CAF50",
+          error: "#F44336",
+          warning: "#FF9800",
+          info: "#2196F3",
+        };
+        const icons = {
+          success: "fa-check-circle",
+          error: "fa-times-circle",
+          warning: "fa-exclamation-circle",
+          info: "fa-info-circle",
+        };
+        toast.style.cssText = `
+                background-color: white;
+                border-left: 5px solid ${colors[type]};
+                padding: 15px 20px;
+                margin-bottom: 10px;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                animation: slideIn 0.3s ease-out;
+            `;
+        toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fas ${icons[type]}" style="color: ${colors[type]}; font-size: 1.3rem;"></i>
+                    <div style="flex-grow: 1;">
+                        <strong style="display: block;">${title}</strong>
+                        <span style="color: #666; font-size: 0.9rem;">${message}</span>
+                    </div>
+                </div>
+            `;
+        container.appendChild(toast);
+        setTimeout(() => {
+          toast.style.animation = "slideOut 0.3s ease-out";
+          setTimeout(() => {
+            if (toast.parentNode === container) {
+              container.removeChild(toast);
+            }
+          }, 300);
+        }, 5000);
+      }
+
+      // Event listeners for modal
+      document.addEventListener("DOMContentLoaded", () => {
+        const btnCancel = document.getElementById("btnCancelImport");
+        const btnConfirm = document.getElementById("btnConfirmImport");
+        if (btnCancel) btnCancel.addEventListener("click", closeImportModal);
+        if (btnConfirm)
+          btnConfirm.addEventListener("click", () => {
+            if (confirmImportCallback) {
+              confirmImportCallback();
+            }
+          });
+      });
+    </script>
+    <style>
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes slideOut {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+      }
+    </style>
+    {% else %}
+    <!-- For Login Page: No Sidebar/Topbar -->
+    {% block login_content %}{% endblock %} {% endif %}
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

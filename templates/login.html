@@ -1,0 +1,99 @@
+{% extends "base.html" %} {% block title %}Masuk{% endblock %} {% block
+login_content %}
+<div class="login-wrapper">
+  <div class="login-left">
+    <div class="login-illustration">
+      <i class="fas fa-mosque login-icon"></i>
+      <h1>Sistem Informasi Manajemen<br/><span class="highlight">Pesantren</span></h1>
+      <p>Mudahkan manajemen data santri dan guru dengan cepat dan aman</p>
+      <div class="deco-line"></div>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-card">
+      <div class="login-header">
+        <i class="fas fa-user-circle login-avatar"></i>
+        <h2>Selamat Datang!</h2>
+        <p>Silakan masuk ke akun Anda untuk melanjutkan</p>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <div class="input-icon-wrapper">
+            <i class="fas fa-user input-icon"></i>
+            <input
+              type="text"
+              id="username"
+              class="form-control input-with-icon"
+              placeholder="Username"
+              required
+            />
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="input-icon-wrapper">
+            <i class="fas fa-lock input-icon"></i>
+            <input
+              type="password"
+              id="password"
+              class="form-control input-with-icon"
+              placeholder="Password"
+              required
+            />
+          </div>
+        </div>
+
+        <div
+          id="loginError"
+          class="login-error"
+          style="display: none"
+        ></div>
+
+        <button
+          type="submit"
+          class="btn btn-primary btn-login"
+          id="btnLogin"
+        >
+          <i class="fas fa-sign-in-alt"></i> Masuk
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btnLogin = document.getElementById("btnLogin");
+    const errorDiv = document.getElementById("loginError");
+    
+    btnLogin.disabled = true;
+    btnLogin.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          username: document.getElementById("username").value, 
+          password: document.getElementById("password").value 
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = "/dashboard";
+      } else {
+        errorDiv.innerText = data.message;
+        errorDiv.style.display = "block";
+      }
+    } catch (err) {
+      errorDiv.innerText = "Terjadi kesalahan pada server.";
+      errorDiv.style.display = "block";
+    }
+    
+    btnLogin.disabled = false;
+    btnLogin.innerHTML = '<i class="fas fa-sign-in-alt"></i> Masuk';
+  }
+</script>
+{% endblock %}

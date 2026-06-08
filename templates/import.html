@@ -1,0 +1,145 @@
+{% extends "base.html" %} {% block title %}Import Data Excel{% endblock %} {%
+block page_title %}Import Data Excel{% endblock %} {% block content %}
+<div class="stepper">
+  <div class="step active">
+    <div class="circle">1</div>
+    Upload
+  </div>
+  <div class="step">
+    <div class="circle">2</div>
+    Preview
+  </div>
+  <div class="step">
+    <div class="circle">3</div>
+    Mapping
+  </div>
+  <div class="step">
+    <div class="circle">4</div>
+    Validasi
+  </div>
+  <div class="step">
+    <div class="circle">5</div>
+    Simulasi
+  </div>
+  <div class="step">
+    <div class="circle">6</div>
+    Hasil
+  </div>
+</div>
+
+<div class="card">
+  <div
+    style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    "
+  >
+    <h3 style="margin: 0">Upload File Excel</h3>
+  </div>
+
+  <form id="uploadForm" onsubmit="handleUpload(event)">
+    <div class="form-group">
+      <label for="target_table">Tabel Tujuan</label>
+      <select
+        id="target_table"
+        name="target_table"
+        class="form-control"
+        required
+      >
+        <option value="santri">Data Santri</option>
+        <option value="guru">Data Guru</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="file">File Excel (.xls, .xlsx)</label>
+      <input
+        type="file"
+        id="file"
+        name="file"
+        class="form-control"
+        accept=".xls,.xlsx"
+        required
+        onchange="autoClearSession()"
+      />
+    </div>
+
+    <div
+      id="uploadMsg"
+      style="margin-bottom: 15px; color: var(--danger); display: none"
+    ></div>
+
+    <button type="submit" class="btn btn-primary" id="btnUpload">
+      <i class="fas fa-upload"></i> Upload & Lanjut Preview
+    </button>
+  </form>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  function autoClearSession() {
+    // Clear workflow session data when a new file is selected
+    const keysToKeep = ["user_id", "username"]; // Add any non-workflow keys if they exist
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (!keysToKeep.includes(key)) {
+        sessionStorage.removeItem(key);
+        i--; // Adjust index after removal
+      }
+    }
+    console.log("Session workflow data automatically cleared.");
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    // Optional: clear session on page load if you want a fresh start every time
+    // autoClearSession();
+  });
+
+  // Clear session when changing target table
+  document
+    .getElementById("target_table")
+    .addEventListener("change", function () {
+      autoClearSession();
+    });
+
+  async function handleUpload(e) {
+    e.preventDefault();
+    const btn = document.getElementById("btnUpload");
+    const form = document.getElementById("uploadForm");
+    const msg = document.getElementById("uploadMsg");
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengupload...';
+
+    const formData = new FormData(form);
+
+    try {
+      const res = await fetch("/api/import/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        // Save state to sessionStorage
+        sessionStorage.setItem("file_id", data.file_id);
+        sessionStorage.setItem("headers", JSON.stringify(data.headers));
+        sessionStorage.setItem("target_table", data.target_table);
+
+        // Redirect to preview
+        window.location.href = "/preview";
+      } else {
+        msg.style.display = "block";
+        msg.innerText = data.message || "Gagal upload file";
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Lanjut Preview';
+      }
+    } catch (err) {
+      msg.style.display = "block";
+      msg.innerText = "Terjadi kesalahan jaringan";
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Lanjut Preview';
+    }
+  }
+</script>
+{% endblock %}

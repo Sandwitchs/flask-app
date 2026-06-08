@@ -1,0 +1,131 @@
+{% extends "base.html" %} {% block title %}Simulasi Import{% endblock %} {%
+block page_title %}Simulasi Import Data{% endblock %} {% block content %}
+<div class="stepper">
+  <div class="step completed">
+    <div class="circle"><i class="fas fa-check"></i></div>
+    Upload
+  </div>
+  <div class="step completed">
+    <div class="circle"><i class="fas fa-check"></i></div>
+    Preview
+  </div>
+  <div class="step completed">
+    <div class="circle"><i class="fas fa-check"></i></div>
+    Mapping
+  </div>
+  <div class="step completed">
+    <div class="circle"><i class="fas fa-check"></i></div>
+    Validasi
+  </div>
+  <div class="step active">
+    <div class="circle">5</div>
+    Simulasi
+  </div>
+  <div class="step">
+    <div class="circle">6</div>
+    Hasil
+  </div>
+</div>
+
+<div class="card" style="text-align: center; padding: 40px 20px">
+  <i
+    class="fas fa-vial"
+    style="font-size: 4rem; color: var(--primary-color); margin-bottom: 20px"
+  ></i>
+  <h2 style="margin-bottom: 10px">Siap Untuk Import</h2>
+  <p style="color: #666; font-size: 1.1rem; margin-bottom: 30px">
+    Sistem akan memasukkan
+    <strong id="simCount" style="color: var(--primary-color)">0</strong> data ke
+    dalam tabel
+    <strong id="simTable" style="text-transform: uppercase">-</strong>.
+    <br />Tidak ada data yang bermasalah. Klik tombol di bawah untuk
+    mengeksekusi import data ke dalam database.
+  </p>
+
+  <button
+    id="btnExecute"
+    class="btn btn-primary"
+    style="font-size: 1.1rem; padding: 15px 30px"
+    onclick="executeImport()"
+  >
+    <i class="fas fa-play-circle"></i> Mulai Import Sekarang
+  </button>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    if (
+      !checkWorkflowState(["validation", "target_table", "file_id", "mapping"])
+    )
+      return;
+
+    const state = getSessionData();
+    document.getElementById("simCount").innerText =
+      state.validation.valid_count;
+    document.getElementById("simTable").innerText = state.target_table;
+  });
+
+  async function executeImport() {
+    const state = getSessionData();
+    const validCount = state.validation.valid_count;
+    const invalidCount = state.validation.invalid_count;
+    const targetTable = state.target_table;
+
+    // Tampilkan modal konfirmasi
+    openImportModal(validCount, invalidCount, targetTable, async () => {
+      const btn = document.getElementById("btnExecute");
+      btn.disabled = true;
+      btn.innerHTML =
+        '<i class="fas fa-spinner fa-spin"></i> Memproses Import...';
+
+      try {
+        const res = await fetch("/api/import/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file_id: state.file_id,
+            target_table: state.target_table,
+            mapping: state.mapping,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          closeImportModal();
+          showToast(
+            "Import Berhasil!",
+            `${data.berhasil} data berhasil diimport, ${data.gagal} data gagal.`,
+            "success",
+          );
+          sessionStorage.setItem("result", JSON.stringify(data));
+
+          // Redirect setelah 1.5 detik
+          setTimeout(() => {
+            window.location.href = "/result";
+          }, 1500);
+        } else {
+          closeImportModal();
+          showToast("Import Gagal", data.message, "error");
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-play-circle"></i> Coba Lagi';
+        }
+      } catch (err) {
+        closeImportModal();
+        showToast("Kesalahan", "Terjadi kesalahan jaringan.", "error");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play-circle"></i> Coba Lagi';
+      }
+    });
+  }
+
+  // Event listener untuk tombol konfirmasi di modal
+  document.addEventListener("DOMContentLoaded", () => {
+    const btnConfirm = document.getElementById("btnConfirmImport");
+    if (btnConfirm) {
+      btnConfirm.addEventListener("click", () => {
+        if (confirmImportCallback) confirmImportCallback();
+      });
+    }
+  });
+</script>
+{% endblock %}

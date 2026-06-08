@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Preview Data{% endblock %}
+{% block page_title %}Preview Data Excel{% endblock %}
+
+{% block content %}
+<div class="stepper">
+    <div class="step completed"><div class="circle"><i class="fas fa-check"></i></div>Upload</div>
+    <div class="step active"><div class="circle">2</div>Preview</div>
+    <div class="step"><div class="circle">3</div>Mapping</div>
+    <div class="step"><div class="circle">4</div>Validasi</div>
+    <div class="step"><div class="circle">5</div>Simulasi</div>
+    <div class="step"><div class="circle">6</div>Hasil</div>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom: 20px;">Preview Data Excel</h3>
+    
+    <div id="loading" style="text-align: center; padding: 20px;">
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+        <p>Memuat data...</p>
+    </div>
+    
+    <div class="table-preview-container" id="tableContainer" style="display: none;">
+        <table id="previewTable" class="table-preview">
+            <thead>
+                <tr id="tableHead"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+    
+    <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <a href="{{ url_for('import_page') }}" class="btn btn-secondary">Batal / Kembali</a>
+        <button onclick="nextStep()" class="btn btn-primary" id="btnNext" style="display: none;">Lanjut ke Pemetaan Kolom <i class="fas fa-arrow-right"></i></button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!checkWorkflowState(['file_id'])) return;
+        
+        const file_id = sessionStorage.getItem('file_id');
+        
+        try {
+            const res = await fetch(`/api/import/preview/${file_id}`);
+            const data = await res.json();
+            
+            document.getElementById('loading').style.display = 'none';
+            
+            if (data.success) {
+                renderTable(data.headers, data.data);
+                document.getElementById('tableContainer').style.display = 'block';
+                document.getElementById('btnNext').style.display = 'inline-block';
+            } else {
+                alert("Gagal memuat preview: " + data.message);
+            }
+        } catch (err) {
+            document.getElementById('loading').innerHTML = '<p style="color:red">Terjadi kesalahan saat memuat preview.</p>';
+        }
+    });
+    
+    function renderTable(headers, rows) {
+        const thead = document.getElementById('tableHead');
+        const tbody = document.getElementById('tableBody');
+        
+        headers.forEach(h => {
+            const th = document.createElement('th');
+            th.innerText = h;
+            thead.appendChild(th);
+        });
+        
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            headers.forEach(h => {
+                const td = document.createElement('td');
+                td.innerText = row[h] !== null ? row[h] : '-';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function nextStep() {
+        window.location.href = '/mapping';
+    }
+</script>
+{% endblock %}

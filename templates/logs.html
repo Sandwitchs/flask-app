@@ -1,0 +1,117 @@
+{% extends "base.html" %} {% block title %}Log Import{% endblock %} {% block
+page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
+<div class="card">
+  <h3 style="margin-bottom: 20px">
+    <i class="fas fa-history"></i> Riwayat Import
+  </h3>
+
+  <div class="table-responsive">
+    <table id="logsTable">
+      <thead>
+        <tr>
+          <th>Waktu Import</th>
+          <th>Tabel Target</th>
+          <th>Status</th>
+          <th>Total Data</th>
+          <th>Berhasil</th>
+          <th>Gagal</th>
+          <th>Keterangan</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="logsBody">
+        <tr>
+          <td colspan="8" style="text-align: center">
+            <i class="fas fa-spinner fa-spin"></i> Memuat log...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  async function rollbackLog(logId) {
+    if (
+      !confirm(
+        "Apakah Anda yakin ingin membatalkan (rollback) import ini? Semua data yang diimport akan dihapus!",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/logs/rollback/${logId}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast(
+          "Rollback Berhasil!",
+          "Data import berhasil dikembalikan.",
+          "success",
+        );
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showToast("Rollback Gagal", data.message, "error");
+      }
+    } catch (err) {
+      showToast(
+        "Kesalahan",
+        "Terjadi kesalahan jaringan saat rollback.",
+        "error",
+      );
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const res = await fetch("/api/logs");
+      const data = await res.json();
+      const tbody = document.getElementById("logsBody");
+
+      if (data.success) {
+        if (data.data.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="8" style="text-align: center; color: #666;">Belum ada riwayat import</td></tr>';
+          return;
+        }
+
+        let html = "";
+        data.data.forEach((log) => {
+          let badgeClass = "badge-success";
+          if (log.status === "Failed") badgeClass = "badge-danger";
+          if (log.status === "Partial") badgeClass = "badge-warning";
+          if (log.status === "Rolled Back") badgeClass = "badge-secondary";
+
+          const canRollback =
+            !log.is_rolled_back && log.status !== "Failed" && log.berhasil > 0;
+
+          html += `
+                        <tr>
+                            <td>${log.tanggal}</td>
+                            <td>${log.target_table ? log.target_table.toUpperCase() : "-"}</td>
+                            <td><span class="badge ${badgeClass}">${log.status}</span></td>
+                            <td>${log.jumlah_data}</td>
+                            <td style="color: #4CAF50; font-weight: bold;">${log.berhasil}</td>
+                            <td style="color: #F44336; font-weight: bold;">${log.gagal}</td>
+                            <td>${log.keterangan || "-"}</td>
+                            <td>
+                                ${canRollback ? `<button class="btn btn-danger btn-sm" onclick="rollbackLog(${log.id})"><i class="fas fa-undo"></i> Rollback</button>` : "-"}
+                            </td>
+                        </tr>
+                    `;
+        });
+        tbody.innerHTML = html;
+      } else {
+        tbody.innerHTML =
+          '<tr><td colspan="8" style="text-align: center; color: red;">Gagal memuat log</td></tr>';
+      }
+    } catch (err) {
+      document.getElementById("logsBody").innerHTML =
+        '<tr><td colspan="8" style="text-align: center; color: red;">Terjadi kesalahan jaringan</td></tr>';
+    }
+  });
+</script>
+{% endblock %}
