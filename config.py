@@ -2,8 +2,9 @@ import os
 import secrets
 from dotenv import load_dotenv
 
-# Load .env file
-load_dotenv()
+# Load .env file (pastikan path benar di PythonAnywhere)
+basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '.env'))
 
 class Config:
     # Generate secure SECRET_KEY jika tidak ada environment variable
