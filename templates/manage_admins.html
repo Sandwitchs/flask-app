@@ -250,7 +250,8 @@ page_title %}Kelola Akun Admin{% endblock %} {% block content %}
         isMainAdmin = data.is_main_admin;
 
         // Hide add admin form if not main admin
-        const mainContentWrapper = document.getElementById('mainContentWrapper');
+        const mainContentWrapper =
+          document.getElementById("mainContentWrapper");
         if (!isMainAdmin) {
           addAdminCard.style.display = "none";
           mainContentWrapper.style.gridTemplateColumns = "1fr";
@@ -280,31 +281,29 @@ page_title %}Kelola Akun Admin{% endblock %} {% block content %}
 
           const isSelf = admin.username === "{{ session.get('username') }}";
           const isMainAdminAccount = admin.username === "admin";
-          const currentUsername = "{{ session.get('username') }}";
 
-          // Reset password button logic
-          let resetBtn = "";
+          // Action buttons logic
+          let actionContent = "";
           if (isMainAdmin) {
-            // Main admin can reset anyone
-            resetBtn = `<button class="btn btn-warning btn-sm" onclick="showResetPasswordModal(${admin.id}, '${admin.username}')" style="margin-right: 5px;"><i class="fas fa-key"></i> Reset Password</button>`;
-          } else if (isSelf) {
-            // Non-main admin can reset their own
-            resetBtn = `<button class="btn btn-warning btn-sm" onclick="showResetPasswordModal(${admin.id}, '${admin.username}')"><i class="fas fa-key"></i> Reset Password</button>`;
-          }
-
-          let deleteBtn = "";
-          if (isSelf) {
-            deleteBtn =
-              '<span style="color: #999; font-size: 0.85rem;">Anda sedang aktif</span>';
-          } else if (isMainAdminAccount) {
-            deleteBtn =
-              '<span style="color: #999; font-size: 0.85rem;">Utama (Proteksi)</span>';
-          } else if (isMainAdmin) {
-            // Only show delete button if current user is main admin
-            deleteBtn = `<button class="btn btn-danger btn-sm" onclick="deleteAdmin(${admin.id}, '${admin.username}')"><i class="fas fa-trash"></i> Hapus</button>`;
+            // Main admin sees Reset Password (for everyone except self) and Delete
+            let resetBtn = "";
+            if (!isSelf) {
+              resetBtn = `<button class="btn btn-warning btn-sm" onclick="showResetPasswordModal(${admin.id}, '${admin.username}')" style="margin-right: 5px;"><i class="fas fa-key"></i> Reset Password</button>`;
+            }
+            let deleteBtn = "";
+            if (isSelf) {
+              deleteBtn =
+                '<span style="color: #999; font-size: 0.85rem;">Anda sedang aktif</span>';
+            } else if (isMainAdminAccount) {
+              deleteBtn =
+                '<span style="color: #999; font-size: 0.85rem;">Utama (Proteksi)</span>';
+            } else {
+              deleteBtn = `<button class="btn btn-danger btn-sm" onclick="deleteAdmin(${admin.id}, '${admin.username}')"><i class="fas fa-trash"></i> Hapus</button>`;
+            }
+            actionContent = resetBtn + deleteBtn;
           } else {
-            // For non-main admins, don't show delete button
-            deleteBtn =
+            // Non-main admin sees only "-" in actions column
+            actionContent =
               '<span style="color: #999; font-size: 0.85rem;">-</span>';
           }
 
@@ -317,7 +316,7 @@ page_title %}Kelola Akun Admin{% endblock %} {% block content %}
                         <td>${emailText}</td>
                         <td>${connectionStatus}</td>
                         <td>${lastActiveText}</td>
-                        <td>${resetBtn}${deleteBtn}</td>
+                        <td>${actionContent}</td>
                     `;
           tbody.appendChild(tr);
         });
@@ -372,35 +371,36 @@ page_title %}Kelola Akun Admin{% endblock %} {% block content %}
 
   function showResetPasswordModal(id, username) {
     resettingAdminId = id;
-    document.getElementById('resetPasswordModalTitle').innerText = `Reset Password Admin: ${username}`;
-    document.getElementById('newPassword').value = '';
-    document.getElementById('confirmPassword').value = '';
-    document.getElementById('resetPasswordError').style.display = 'none';
-    document.getElementById('resetPasswordModal').style.display = 'flex';
+    document.getElementById("resetPasswordModalTitle").innerText =
+      `Reset Password Admin: ${username}`;
+    document.getElementById("newPassword").value = "";
+    document.getElementById("confirmPassword").value = "";
+    document.getElementById("resetPasswordError").style.display = "none";
+    document.getElementById("resetPasswordModal").style.display = "flex";
   }
 
   function closeResetPasswordModal() {
-    document.getElementById('resetPasswordModal').style.display = 'none';
+    document.getElementById("resetPasswordModal").style.display = "none";
     resettingAdminId = null;
   }
 
   async function handleResetPassword() {
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    const errorDiv = document.getElementById('resetPasswordError');
-    const btn = document.getElementById('btnResetPassword');
+    const newPassword = document.getElementById("newPassword").value;
+    const confirmPassword = document.getElementById("confirmPassword").value;
+    const errorDiv = document.getElementById("resetPasswordError");
+    const btn = document.getElementById("btnResetPassword");
 
-    errorDiv.style.display = 'none';
+    errorDiv.style.display = "none";
 
     if (newPassword !== confirmPassword) {
-      errorDiv.innerText = 'Password baru dan konfirmasi password tidak cocok!';
-      errorDiv.style.display = 'block';
+      errorDiv.innerText = "Password baru dan konfirmasi password tidak cocok!";
+      errorDiv.style.display = "block";
       return;
     }
 
     if (newPassword.length < 6) {
-      errorDiv.innerText = 'Password harus memiliki minimal 6 karakter!';
-      errorDiv.style.display = 'block';
+      errorDiv.innerText = "Password harus memiliki minimal 6 karakter!";
+      errorDiv.style.display = "block";
       return;
     }
 
@@ -408,11 +408,14 @@ page_title %}Kelola Akun Admin{% endblock %} {% block content %}
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
 
     try {
-      const res = await fetch(`/api/admins/${resettingAdminId}/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPassword })
-      });
+      const res = await fetch(
+        `/api/admins/${resettingAdminId}/reset-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: newPassword }),
+        },
+      );
       const data = await res.json();
 
       if (data.success) {
@@ -420,11 +423,11 @@ page_title %}Kelola Akun Admin{% endblock %} {% block content %}
         closeResetPasswordModal();
       } else {
         errorDiv.innerText = data.message;
-        errorDiv.style.display = 'block';
+        errorDiv.style.display = "block";
       }
     } catch (err) {
       errorDiv.innerText = "Terjadi kesalahan jaringan.";
-      errorDiv.style.display = 'block';
+      errorDiv.style.display = "block";
     }
 
     btn.disabled = false;
