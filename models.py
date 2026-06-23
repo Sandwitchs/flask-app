@@ -8,6 +8,9 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False) # Hashed password
+    email = db.Column(db.String(100), unique=True, nullable=True)
+    last_active_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class Santri(db.Model):
     __tablename__ = 'santri'
@@ -37,6 +40,7 @@ class Guru(db.Model):
     nip = db.Column(db.String(50), unique=True, nullable=False)  # Nomor Induk Pegawai
     nama = db.Column(db.String(100), nullable=False)
     mata_pelajaran = db.Column(db.String(100), nullable=True)
+    tingkat_rombel = db.Column(db.String(100), nullable=True)
 
 class ImportLog(db.Model):
     __tablename__ = 'import_log'
@@ -50,3 +54,7 @@ class ImportLog(db.Model):
     keterangan = db.Column(db.String(255), nullable=True) # e.g. "Kelas 7, Kelas 8"
     imported_ids = db.Column(db.Text, nullable=True) # JSON string of IDs, for rollback
     is_rolled_back = db.Column(db.Boolean, default=False)
+    invalid_rows_data = db.Column(db.Text, nullable=True) # JSON details of failed/skipped rows
+    admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Admin yang melakukan import
+    admin = db.relationship('User', backref=db.backref('import_logs', lazy=True))
+

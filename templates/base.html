@@ -36,10 +36,17 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <h2><i class="fas fa-mosque"></i> SIM Pesantren</h2>
-        <p style="font-size: 0.8rem; opacity: 0.8; margin-top: 5px">
-          Daar El-Haq
-        </p>
+        <div class="sidebar-header-content" style="perspective: 1000px">
+          <img
+            src="{{ url_for('static', filename='images/logo.png') }}"
+            alt="Logo Pesantren"
+            class="sidebar-logo"
+          />
+          <div class="sidebar-text">
+            <h2>SIM Pesantren</h2>
+            <p>Daar El-Haq</p>
+          </div>
+        </div>
       </div>
       <ul class="sidebar-menu">
         <li>
@@ -48,6 +55,22 @@
             class="{{ 'active' if request.endpoint == 'dashboard_page' else '' }}"
           >
             <i class="fas fa-home"></i> Dashboard
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('santri_page') }}"
+            class="{{ 'active' if request.endpoint == 'santri_page' else '' }}"
+          >
+            <i class="fas fa-user-graduate"></i> Data Santri
+          </a>
+        </li>
+        <li>
+          <a
+            href="{{ url_for('guru_page') }}"
+            class="{{ 'active' if request.endpoint == 'guru_page' else '' }}"
+          >
+            <i class="fas fa-chalkboard-teacher"></i> Data Guru
           </a>
         </li>
         <li>
@@ -73,6 +96,14 @@
             padding-top: 20px;
           "
         >
+          <a
+            href="{{ url_for('manage_admins_page') }}"
+            class="{{ 'active' if request.endpoint == 'manage_admins_page' else '' }}"
+          >
+            <i class="fas fa-users-cog"></i> Kelola Admin
+          </a>
+        </li>
+        <li>
           <a
             href="{{ url_for('change_password_page') }}"
             class="{{ 'active' if request.endpoint == 'change_password_page' else '' }}"
@@ -253,7 +284,9 @@
         if (btnConfirm)
           btnConfirm.addEventListener("click", () => {
             if (confirmImportCallback) {
-              confirmImportCallback();
+              const callback = confirmImportCallback;
+              confirmImportCallback = null;
+              callback();
             }
           });
       });

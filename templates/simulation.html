@@ -65,16 +65,23 @@ block page_title %}Simulasi Import Data{% endblock %} {% block content %}
     document.getElementById("simTable").innerText = state.target_table;
   });
 
+  let isExecuting = false; // Guard untuk cegah double-click
+
   async function executeImport() {
+    if (isExecuting) return; // Cegah eksekusi ganda
+    isExecuting = true;
+
     const state = getSessionData();
     const validCount = state.validation.valid_count;
     const invalidCount = state.validation.invalid_count;
     const targetTable = state.target_table;
 
+    // Disable tombol utama segera
+    const btn = document.getElementById("btnExecute");
+    btn.disabled = true;
+
     // Tampilkan modal konfirmasi
     openImportModal(validCount, invalidCount, targetTable, async () => {
-      const btn = document.getElementById("btnExecute");
-      btn.disabled = true;
       btn.innerHTML =
         '<i class="fas fa-spinner fa-spin"></i> Memproses Import...';
 
@@ -93,9 +100,9 @@ block page_title %}Simulasi Import Data{% endblock %} {% block content %}
         if (data.success) {
           closeImportModal();
           showToast(
-            "Import Berhasil!",
-            `${data.berhasil} data berhasil diimport, ${data.gagal} data gagal.`,
-            "success",
+            "Import Selesai!",
+            `${data.berhasil} data berhasil, ${data.gagal} data gagal.`,
+            data.gagal > 0 ? "warning" : "success",
           );
           sessionStorage.setItem("result", JSON.stringify(data));
 
@@ -108,24 +115,26 @@ block page_title %}Simulasi Import Data{% endblock %} {% block content %}
           showToast("Import Gagal", data.message, "error");
           btn.disabled = false;
           btn.innerHTML = '<i class="fas fa-play-circle"></i> Coba Lagi';
+          isExecuting = false;
         }
       } catch (err) {
         closeImportModal();
         showToast("Kesalahan", "Terjadi kesalahan jaringan.", "error");
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-play-circle"></i> Coba Lagi';
+        isExecuting = false;
       }
     });
+
+    // Jika user cancel modal, re-enable
+    const btnCancel = document.getElementById("btnCancelImport");
+    if (btnCancel) {
+      btnCancel.addEventListener("click", () => {
+        btn.disabled = false;
+        isExecuting = false;
+      }, { once: true });
+    }
   }
 
-  // Event listener untuk tombol konfirmasi di modal
-  document.addEventListener("DOMContentLoaded", () => {
-    const btnConfirm = document.getElementById("btnConfirmImport");
-    if (btnConfirm) {
-      btnConfirm.addEventListener("click", () => {
-        if (confirmImportCallback) confirmImportCallback();
-      });
-    }
-  });
 </script>
 {% endblock %}

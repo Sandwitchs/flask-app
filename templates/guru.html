@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% block title %}Data Guru{% endblock %}
+{% block page_title %}Data Guru Terdaftar{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 20px;">
+    <h3 style="color: var(--primary-color); margin-bottom: 15px;">
+        <i class="fas fa-filter"></i> Pencarian & Filter Data
+    </h3>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="searchFilter">Cari Nama / NIP</label>
+            <div class="input-icon-wrapper">
+                <i class="fas fa-search input-icon"></i>
+                <input type="text" id="searchFilter" class="form-control input-with-icon" placeholder="Ketik nama atau NIP..." oninput="fetchData()">
+            </div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="mapelFilter">Mata Pelajaran</label>
+            <select id="mapelFilter" class="form-control" onchange="fetchData()">
+                <option value="">-- Semua Mata Pelajaran --</option>
+            </select>
+        </div>
+        
+        <div>
+            <button class="btn btn-secondary" onclick="resetFilters()" style="width: 100%; height: 42px;">
+                <i class="fas fa-sync-alt"></i> Reset Filter
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Summary stats -->
+<div class="card" style="margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h3 style="margin-bottom: 0;"><i class="fas fa-chalkboard-teacher"></i> Daftar Guru</h3>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <span class="badge badge-success" id="dataCount" style="font-size: 0.95rem; padding: 6px 12px;">Total: 0 Guru</span>
+            <span class="badge badge-secondary" id="batchCount" style="font-size: 0.85rem; padding: 5px 10px;">0 Batch Import</span>
+        </div>
+    </div>
+</div>
+
+<div id="loading" style="text-align: center; padding: 40px; display: none;">
+    <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--primary-color);"></i>
+    <p style="margin-top: 10px; color: #666;">Memuat data guru...</p>
+</div>
+
+<div id="emptyState" style="text-align: center; padding: 40px; display: none;">
+    <i class="fas fa-user-slash fa-3x" style="color: #ccc; margin-bottom: 15px;"></i>
+    <p style="color: #666; font-size: 1.1rem;">Tidak ada data guru yang cocok dengan kriteria pencarian.</p>
+</div>
+
+<!-- Batched data container -->
+<div id="batchesContainer"></div>
+
+<style>
+    .batch-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+        overflow: hidden;
+        border: 1px solid #e8e8e8;
+        transition: box-shadow 0.2s;
+    }
+    .batch-card:hover {
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    }
+    .batch-header {
+        padding: 18px 24px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        user-select: none;
+        transition: background 0.2s;
+    }
+    .batch-header:hover {
+        background: #f9f9f9;
+    }
+    .batch-header .batch-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 1.1rem;
+    }
+    .batch-header .batch-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .batch-header .batch-info h4 {
+        margin: 0 0 4px 0;
+        font-size: 1rem;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .batch-header .batch-info p {
+        margin: 0;
+        font-size: 0.82rem;
+        color: #888;
+    }
+    .batch-header .batch-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+    .batch-header .batch-count {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .batch-header .batch-toggle {
+        color: #aaa;
+        font-size: 1rem;
+        transition: transform 0.3s;
+    }
+    .batch-header .batch-toggle.open {
+        transform: rotate(180deg);
+    }
+    .batch-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s ease;
+    }
+    .batch-body.open {
+        max-height: 100000px;
+    }
+    .batch-body-inner {
+        border-top: 1px solid #f0f0f0;
+    }
+    .batch-status-badge {
+        padding: 2px 10px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let filterOptionsLoaded = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchData();
+    });
+
+    async function fetchData() {
+        const search = document.getElementById('searchFilter').value;
+        const mapel = document.getElementById('mapelFilter').value;
+        
+        const loading = document.getElementById('loading');
+        const emptyState = document.getElementById('emptyState');
+        const container = document.getElementById('batchesContainer');
+        
+        loading.style.display = 'block';
+        container.innerHTML = '';
+        emptyState.style.display = 'none';
+        
+        try {
+            const queryParams = new URLSearchParams({
+                search: search,
+                mapel: mapel
+            });
+            
+            const res = await fetch(`/api/guru/grouped?${queryParams.toString()}`);
+            const data = await res.json();
+            
+            loading.style.display = 'none';
+            
+            if (data.success) {
+                document.getElementById('dataCount').innerText = `Total: ${data.total} Guru`;
+                document.getElementById('batchCount').innerText = `${data.batches.length} Batch Import`;
+                
+                // Populate dynamic filters once
+                if (!filterOptionsLoaded) {
+                    populateFilters(data.mapels);
+                    filterOptionsLoaded = true;
+                }
+                
+                if (data.total === 0 || data.batches.length === 0) {
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                // Render each batch
+                data.batches.forEach((batch, batchIdx) => {
+                    container.appendChild(createBatchCard(batch, batchIdx));
+                });
+                
+            } else {
+                loading.innerHTML = `<p style="color: red;"><i class="fas fa-times-circle"></i> Gagal memuat data: ${data.message}</p>`;
+                loading.style.display = 'block';
+            }
+        } catch (err) {
+            loading.innerHTML = `<p style="color: red;"><i class="fas fa-times-circle"></i> Terjadi kesalahan koneksi.</p>`;
+            loading.style.display = 'block';
+        }
+    }
+
+    function createBatchCard(batch, batchIdx) {
+        const log = batch.log;
+        const rows = batch.data;
+        const isUntracked = log.log_id === null;
+        
+        // Color scheme per batch
+        const colors = [
+            { bg: '#e8f5e9', icon: '#2e7d32', border: '#c8e6c9' },
+            { bg: '#e3f2fd', icon: '#1565c0', border: '#bbdefb' },
+            { bg: '#fff3e0', icon: '#ef6c00', border: '#ffe0b2' },
+            { bg: '#f3e5f5', icon: '#7b1fa2', border: '#ce93d8' },
+            { bg: '#fce4ec', icon: '#c62828', border: '#f8bbd0' },
+            { bg: '#e0f7fa', icon: '#00838f', border: '#b2ebf2' },
+        ];
+        const color = isUntracked 
+            ? { bg: '#f5f5f5', icon: '#757575', border: '#e0e0e0' }
+            : colors[batchIdx % colors.length];
+        
+        // Status badge
+        let statusBadge = '';
+        if (!isUntracked) {
+            const statusColors = {
+                'Success': { bg: '#e8f5e9', text: '#2e7d32' },
+                'Partial': { bg: '#fff3e0', text: '#ef6c00' },
+                'Failed':  { bg: '#fce4ec', text: '#c62828' }
+            };
+            const sc = statusColors[log.status] || statusColors['Success'];
+            statusBadge = `<span class="batch-status-badge" style="background:${sc.bg};color:${sc.text};">${log.status}</span>`;
+        }
+        
+        // Subtext
+        let subtext = '';
+        if (!isUntracked) {
+            const parts = [];
+            parts.push(`${log.berhasil} berhasil`);
+            if (log.gagal > 0) parts.push(`${log.gagal} gagal`);
+            if (log.keterangan) parts.push(`Info: ${log.keterangan}`);
+            subtext = parts.join(' · ');
+        } else {
+            subtext = 'Data yang diimport sebelum sistem log diterapkan';
+        }
+        
+        const card = document.createElement('div');
+        card.className = 'batch-card';
+        
+        card.innerHTML = `
+            <div class="batch-header" onclick="toggleBatch(this)">
+                <div class="batch-icon" style="background:${color.bg}; color:${color.icon};">
+                    <i class="fas ${isUntracked ? 'fa-archive' : 'fa-file-import'}"></i>
+                </div>
+                <div class="batch-info">
+                    <h4>
+                        <i class="fas fa-clock" style="color: #aaa; font-size: 0.85rem;"></i>
+                        ${log.tanggal}
+                        ${statusBadge}
+                    </h4>
+                    <p>${subtext}</p>
+                </div>
+                <div class="batch-meta">
+                    <span class="batch-count" style="background:${color.bg}; color:${color.icon};">${rows.length} data</span>
+                    <i class="fas fa-chevron-down batch-toggle"></i>
+                </div>
+            </div>
+            <div class="batch-body">
+                <div class="batch-body-inner">
+                    <div class="table-preview-container" style="margin: 0;">
+                        <table class="table-preview" style="margin: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">No.</th>
+                                    <th>Nama Lengkap</th>
+                                    <th>NIP</th>
+                                    <th>Mata Pelajaran</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows.map((g, idx) => `
+                                    <tr>
+                                        <td>${idx + 1}</td>
+                                        <td style="font-weight: 600; color: var(--primary-color);">${g.nama}</td>
+                                        <td><code>${g.nip}</code></td>
+                                        <td><span class="badge badge-secondary" style="font-size: 0.85rem;">${g.mata_pelajaran || '-'}</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Auto-expand first batch
+        if (batchIdx === 0) {
+            setTimeout(() => {
+                const body = card.querySelector('.batch-body');
+                const toggle = card.querySelector('.batch-toggle');
+                body.classList.add('open');
+                toggle.classList.add('open');
+            }, 100);
+        }
+        
+        return card;
+    }
+
+    function toggleBatch(header) {
+        const body = header.nextElementSibling;
+        const toggle = header.querySelector('.batch-toggle');
+        body.classList.toggle('open');
+        toggle.classList.toggle('open');
+    }
+
+    function populateFilters(mapels) {
+        const mapelSelect = document.getElementById('mapelFilter');
+        
+        mapels.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.innerText = m;
+            mapelSelect.appendChild(opt);
+        });
+    }
+
+    function resetFilters() {
+        document.getElementById('searchFilter').value = '';
+        document.getElementById('mapelFilter').value = '';
+        fetchData();
+    }
+</script>
+{% endblock %}

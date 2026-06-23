@@ -10,6 +10,7 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
       <thead>
         <tr>
           <th>Waktu Import</th>
+          <th>Admin</th>
           <th>Tabel Target</th>
           <th>Status</th>
           <th>Total Data</th>
@@ -21,12 +22,123 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
       </thead>
       <tbody id="logsBody">
         <tr>
-          <td colspan="8" style="text-align: center">
+          <td colspan="9" style="text-align: center">
             <i class="fas fa-spinner fa-spin"></i> Memuat log...
           </td>
         </tr>
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Modal Detail Error -->
+<div
+  id="errorDetailsModal"
+  class="modal"
+  style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    overflow-y: auto;
+  "
+>
+  <div
+    class="modal-content"
+    style="
+      background-color: white;
+      margin: 8% auto;
+      padding: 25px;
+      border-radius: 12px;
+      max-width: 800px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    "
+  >
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+      "
+    >
+      <h3 style="color: var(--danger); margin: 0">
+        <i class="fas fa-exclamation-triangle"></i> Detail Kategori Data Invalid
+      </h3>
+      <button
+        onclick="closeErrorDetailsModal()"
+        style="
+          background: none;
+          border: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: #999;
+        "
+      >
+        &times;
+      </button>
+    </div>
+    <div style="margin-bottom: 15px; font-size: 0.95rem; color: #555">
+      Berikut adalah daftar baris data yang terdeteksi tidak valid dan dilewati
+      (skip) saat import.
+    </div>
+    <div
+      class="table-responsive"
+      style="
+        max-height: 350px;
+        overflow-y: auto;
+        border: 1px solid #eee;
+        border-radius: 6px;
+      "
+    >
+      <table>
+        <thead>
+          <tr>
+            <th
+              style="
+                width: 110px;
+                background-color: var(--primary-color);
+                color: white;
+              "
+            >
+              Baris Excel
+            </th>
+            <th style="background-color: var(--primary-color); color: white">
+              Nama / Identitas
+            </th>
+            <th style="background-color: var(--primary-color); color: white">
+              Unique Key
+            </th>
+            <th style="background-color: var(--primary-color); color: white">
+              Kategori Error
+            </th>
+            <th style="background-color: var(--primary-color); color: white">
+              Detail Masalah
+            </th>
+          </tr>
+        </thead>
+        <tbody id="errorDetailsBody"></tbody>
+      </table>
+    </div>
+    <div
+      style="
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 20px;
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+      "
+    >
+      <button class="btn btn-secondary" onclick="closeErrorDetailsModal()">
+        Tutup
+      </button>
+    </div>
   </div>
 </div>
 {% endblock %} {% block scripts %}
@@ -43,6 +155,7 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
     try {
       const res = await fetch(`/api/logs/rollback/${logId}`, {
         method: "POST",
+        cache: "no-store",
       });
       const data = await res.json();
 
@@ -52,7 +165,7 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
           "Data import berhasil dikembalikan.",
           "success",
         );
-        setTimeout(() => location.reload(), 1000);
+        setTimeout(loadLogs, 1000);
       } else {
         showToast("Rollback Gagal", data.message, "error");
       }
@@ -65,17 +178,100 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
     }
   }
 
-  document.addEventListener("DOMContentLoaded", async () => {
+  async function showErrorDetails(logId) {
+    const log = await fetchLogById(logId);
+    if (!log) return;
+
+    const tbody = document.getElementById("errorDetailsBody");
+    tbody.innerHTML = "";
+
+    const errors = log.invalid_rows_data || [];
+    if (errors.length === 0) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" style="text-align: center; color: #666;">Tidak ada detail error.</td></tr>';
+    } else {
+      errors.forEach((err) => {
+        const tr = document.createElement("tr");
+        let badgeClass = "badge-danger";
+        if (err.category === "Duplikat") badgeClass = "badge-warning";
+
+        tr.innerHTML = `
+                <td style="font-weight: bold; text-align: center;">${err.row}</td>
+                <td>${err.name}</td>
+                <td><code>${err.key}</code></td>
+                <td><span class="badge ${badgeClass}">${err.category}</span></td>
+                <td style="color: #c62828; font-size: 0.88rem;">${err.error}</td>
+            `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("errorDetailsModal").style.display = "block";
+  }
+
+  function closeErrorDetailsModal() {
+    document.getElementById("errorDetailsModal").style.display = "none";
+  }
+
+  async function fetchLogs() {
+    const res = await fetch(`/api/logs?_=${Date.now()}`, {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    });
+    return res.json();
+  }
+
+  async function fetchLogById(logId) {
     try {
-      const res = await fetch("/api/logs");
-      const data = await res.json();
-      const tbody = document.getElementById("logsBody");
+      const data = await fetchLogs();
+      if (!data.success) {
+        showToast("Gagal", "Tidak dapat memuat detail log terbaru.", "error");
+        return null;
+      }
+      return data.data.find((log) => log.id === logId) || null;
+    } catch (err) {
+      showToast(
+        "Kesalahan",
+        "Terjadi kesalahan jaringan saat memuat detail log.",
+        "error",
+      );
+      return null;
+    }
+  }
+
+  async function loadLogs() {
+    const tbody = document.getElementById("logsBody");
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center">
+          <i class="fas fa-spinner fa-spin"></i> Memuat log...
+        </td>
+      </tr>
+    `;
+
+    try {
+      const data = await fetchLogs();
 
       if (data.success) {
         if (data.data.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="8" style="text-align: center; color: #666;">Belum ada riwayat import</td></tr>';
+            '<tr><td colspan="9" style="text-align: center; color: #666;">Belum ada riwayat import</td></tr>';
           return;
+        }
+
+        function formatDateWIB(dateStr) {
+          const date = new Date(dateStr);
+          // Convert to WIB (UTC+7)
+          const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+          const day = String(wibDate.getUTCDate()).padStart(2, "0");
+          const month = String(wibDate.getUTCMonth() + 1).padStart(2, "0");
+          const year = wibDate.getUTCFullYear();
+          const hours = String(wibDate.getUTCHours()).padStart(2, "0");
+          const minutes = String(wibDate.getUTCMinutes()).padStart(2, "0");
+          const seconds = String(wibDate.getUTCSeconds()).padStart(2, "0");
+          return `${day}-${month}-${year} ${hours}:${minutes}:${seconds} WIB`;
         }
 
         let html = "";
@@ -88,9 +284,14 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
           const canRollback =
             !log.is_rolled_back && log.status !== "Failed" && log.berhasil > 0;
 
+          const hasErrors = log.gagal > 0;
+          const adminName = log.admin_name || "Admin Sistem";
+          const formattedDate = formatDateWIB(log.tanggal);
+
           html += `
                         <tr>
-                            <td>${log.tanggal}</td>
+                            <td>${formattedDate}</td>
+                            <td>${adminName}</td>
                             <td>${log.target_table ? log.target_table.toUpperCase() : "-"}</td>
                             <td><span class="badge ${badgeClass}">${log.status}</span></td>
                             <td>${log.jumlah_data}</td>
@@ -98,7 +299,11 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
                             <td style="color: #F44336; font-weight: bold;">${log.gagal}</td>
                             <td>${log.keterangan || "-"}</td>
                             <td>
-                                ${canRollback ? `<button class="btn btn-danger btn-sm" onclick="rollbackLog(${log.id})"><i class="fas fa-undo"></i> Rollback</button>` : "-"}
+                                <div style="display: flex; gap: 5px;">
+                                    ${hasErrors ? `<button class="btn btn-secondary btn-sm" style="background-color: #f57c00; border-color: #e65100; color: white;" onclick="showErrorDetails(${log.id})"><i class="fas fa-exclamation-circle"></i> Detail Error</button>` : ""}
+                                    ${canRollback ? `<button class="btn btn-danger btn-sm" onclick="rollbackLog(${log.id})"><i class="fas fa-undo"></i> Rollback</button>` : ""}
+                                    ${!canRollback && !hasErrors ? "-" : ""}
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -106,12 +311,14 @@ page_title %}Riwayat Log Import Data{% endblock %} {% block content %}
         tbody.innerHTML = html;
       } else {
         tbody.innerHTML =
-          '<tr><td colspan="8" style="text-align: center; color: red;">Gagal memuat log</td></tr>';
+          '<tr><td colspan="9" style="text-align: center; color: red;">Gagal memuat log</td></tr>';
       }
     } catch (err) {
       document.getElementById("logsBody").innerHTML =
-        '<tr><td colspan="8" style="text-align: center; color: red;">Terjadi kesalahan jaringan</td></tr>';
+        '<tr><td colspan="9" style="text-align: center; color: red;">Terjadi kesalahan jaringan</td></tr>';
     }
-  });
+  }
+
+  document.addEventListener("DOMContentLoaded", loadLogs);
 </script>
 {% endblock %}

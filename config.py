@@ -1,9 +1,15 @@
 import os
 import secrets
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 class Config:
     # Generate secure SECRET_KEY jika tidak ada environment variable
     SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_urlsafe(32)
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID') or ''
+
     
     # Configure MySQL Database (Replace 'root' and '' if you have a password)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///sqlite.db'

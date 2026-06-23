@@ -1,0 +1,454 @@
+{% extends "base.html" %} {% block title %}Kelola Admin{% endblock %} {% block
+page_title %}Kelola Akun Admin{% endblock %} {% block content %}
+<div
+  id="mainContentWrapper"
+  style="
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 20px;
+    align-items: start;
+  "
+>
+  <!-- Form Tambah Admin (Only visible for main admin) -->
+  <div class="card" id="addAdminCard">
+    <h3 style="color: var(--primary-color); margin-bottom: 20px">
+      <i class="fas fa-user-plus"></i> Tambah Admin Baru
+    </h3>
+
+    <form id="addAdminForm" onsubmit="handleAddAdmin(event)">
+      <div class="form-group">
+        <label for="username">Username (*)</label>
+        <div class="input-icon-wrapper">
+          <i class="fas fa-user input-icon"></i>
+          <input
+            type="text"
+            id="username"
+            class="form-control input-with-icon"
+            placeholder="Masukkan username"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Gmail (Untuk Login Google)</label>
+        <div class="input-icon-wrapper">
+          <i class="fas fa-envelope input-icon"></i>
+          <input
+            type="email"
+            id="email"
+            class="form-control input-with-icon"
+            placeholder="contoh@gmail.com"
+          />
+        </div>
+        <small style="color: #666; margin-top: 5px; display: block"
+          >Masukkan email Google / Gmail jika ingin akun ini bisa login langsung
+          menggunakan tombol Google.</small
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password (*)</label>
+        <div class="input-icon-wrapper">
+          <i class="fas fa-lock input-icon"></i>
+          <input
+            type="password"
+            id="password"
+            class="form-control input-with-icon"
+            placeholder="Masukkan password"
+            required
+            minlength="6"
+          />
+        </div>
+      </div>
+
+      <div
+        id="addAdminError"
+        class="login-error"
+        style="
+          display: none;
+          padding: 8px 12px;
+          margin-bottom: 15px;
+          font-size: 0.9rem;
+        "
+      ></div>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        id="btnSubmitAdmin"
+        style="width: 100%"
+      >
+        <i class="fas fa-plus"></i> Tambahkan Akun
+      </button>
+    </form>
+  </div>
+
+  <!-- List Admin & Status Google -->
+  <div style="display: flex; flex-direction: column; gap: 20px">
+    <!-- Card Google Config Info -->
+    <div
+      class="card"
+      style="border-left: 5px solid #2196f3; background: #e3f2fd"
+    >
+      <h4 style="color: #0d47a1; margin-bottom: 10px">
+        <i class="fab fa-google"></i> Status Koneksi Gmail / Google Sign-In
+      </h4>
+      {% if google_client_id == '' or 'YOUR_GOOGLE_CLIENT_ID' in
+      google_client_id %}
+      <p
+        style="
+          color: #1565c0;
+          font-size: 0.9rem;
+          line-height: 1.5;
+          margin-bottom: 0;
+        "
+      >
+        <span
+          class="badge badge-warning"
+          style="color: #b78103; background-color: #fff3e0; margin-bottom: 5px"
+          >Google Sign-In Non-Aktif</span
+        ><br />
+        Google Client ID belum dikonfigurasi di file <code>.env</code>. <br />
+        <strong>Cara menghubungkan dengan Gmail:</strong><br />
+        1. Buka Google Cloud Console dan buat Client ID OAuth 2.0.<br />
+        2. Di file <code>.env</code> di root folder web app, tambahkan:<br />
+        <code>GOOGLE_CLIENT_ID=Client-ID-Anda.apps.googleusercontent.com</code
+        ><br />
+        3. Restart aplikasi web server Flask.
+      </p>
+      {% else %}
+      <p
+        style="
+          color: #1b5e20;
+          font-size: 0.9rem;
+          line-height: 1.5;
+          margin-bottom: 0;
+        "
+      >
+        <span
+          class="badge badge-success"
+          style="color: #2e7d32; background-color: #e8f5e9; margin-bottom: 5px"
+          >Google Sign-In Aktif</span
+        ><br />
+        Sistem berhasil mendeteksi Google Client ID! Admin yang memiliki email
+        Gmail terdaftar di bawah dapat langsung login menggunakan tombol
+        <strong>Login Google</strong> di halaman utama.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Tabel Admin -->
+    <div class="card">
+      <h3 style="margin-bottom: 15px">
+        <i class="fas fa-users"></i> Pengguna Admin
+      </h3>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Username</th>
+              <th>Email Gmail</th>
+              <th>Status Gmail</th>
+              <th>Terakhir Aktif</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="adminsTableBody">
+            <tr>
+              <td colspan="6" style="text-align: center">
+                <i class="fas fa-spinner fa-spin"></i> Memuat akun...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="resetPasswordModal" class="modal-overlay" style="display: none">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="resetPasswordModalTitle">Reset Password Admin</h3>
+      <button class="modal-close" onclick="closeResetPasswordModal()">
+        &times;
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="newPassword">Password Baru (*)</label>
+        <div class="input-icon-wrapper">
+          <i class="fas fa-lock input-icon"></i>
+          <input
+            type="password"
+            id="newPassword"
+            class="form-control input-with-icon"
+            placeholder="Masukkan password baru (min 6 karakter)"
+            required
+            minlength="6"
+          />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="confirmPassword">Konfirmasi Password (*)</label>
+        <div class="input-icon-wrapper">
+          <i class="fas fa-lock input-icon"></i>
+          <input
+            type="password"
+            id="confirmPassword"
+            class="form-control input-with-icon"
+            placeholder="Masukkan password baru lagi"
+            required
+            minlength="6"
+          />
+        </div>
+      </div>
+      <div
+        id="resetPasswordError"
+        class="login-error"
+        style="
+          display: none;
+          padding: 8px 12px;
+          margin-bottom: 15px;
+          font-size: 0.9rem;
+        "
+      ></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeResetPasswordModal()">
+        Batal
+      </button>
+      <button
+        class="btn btn-primary"
+        id="btnResetPassword"
+        onclick="handleResetPassword()"
+      >
+        <i class="fas fa-key"></i> Reset Password
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  let isMainAdmin = false;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadAdmins();
+  });
+
+  async function loadAdmins() {
+    const tbody = document.getElementById("adminsTableBody");
+    const addAdminCard = document.getElementById("addAdminCard");
+    try {
+      const res = await fetch("/api/admins");
+      const data = await res.json();
+
+      if (data.success) {
+        isMainAdmin = data.is_main_admin;
+
+        // Hide add admin form if not main admin
+        const mainContentWrapper = document.getElementById('mainContentWrapper');
+        if (!isMainAdmin) {
+          addAdminCard.style.display = "none";
+          mainContentWrapper.style.gridTemplateColumns = "1fr";
+          mainContentWrapper.style.justifyItems = "center";
+        } else {
+          addAdminCard.style.display = "block";
+          mainContentWrapper.style.gridTemplateColumns = "1fr 1.5fr";
+          mainContentWrapper.style.justifyItems = "start";
+        }
+
+        if (data.data.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" style="text-align: center;">Tidak ada akun admin.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = "";
+        data.data.forEach((admin, idx) => {
+          const tr = document.createElement("tr");
+
+          const emailText = admin.email
+            ? `<code>${admin.email}</code>`
+            : '<em style="color: #999;">Tidak terhubung</em>';
+          const connectionStatus = admin.email
+            ? '<span class="badge badge-success"><i class="fas fa-link"></i> Terhubung</span>'
+            : '<span class="badge badge-secondary"><i class="fas fa-unlink"></i> Belum</span>';
+
+          const isSelf = admin.username === "{{ session.get('username') }}";
+          const isMainAdminAccount = admin.username === "admin";
+          const currentUsername = "{{ session.get('username') }}";
+
+          // Reset password button logic
+          let resetBtn = "";
+          if (isMainAdmin) {
+            // Main admin can reset anyone
+            resetBtn = `<button class="btn btn-warning btn-sm" onclick="showResetPasswordModal(${admin.id}, '${admin.username}')" style="margin-right: 5px;"><i class="fas fa-key"></i> Reset Password</button>`;
+          } else if (isSelf) {
+            // Non-main admin can reset their own
+            resetBtn = `<button class="btn btn-warning btn-sm" onclick="showResetPasswordModal(${admin.id}, '${admin.username}')"><i class="fas fa-key"></i> Reset Password</button>`;
+          }
+
+          let deleteBtn = "";
+          if (isSelf) {
+            deleteBtn =
+              '<span style="color: #999; font-size: 0.85rem;">Anda sedang aktif</span>';
+          } else if (isMainAdminAccount) {
+            deleteBtn =
+              '<span style="color: #999; font-size: 0.85rem;">Utama (Proteksi)</span>';
+          } else if (isMainAdmin) {
+            // Only show delete button if current user is main admin
+            deleteBtn = `<button class="btn btn-danger btn-sm" onclick="deleteAdmin(${admin.id}, '${admin.username}')"><i class="fas fa-trash"></i> Hapus</button>`;
+          } else {
+            // For non-main admins, don't show delete button
+            deleteBtn =
+              '<span style="color: #999; font-size: 0.85rem;">-</span>';
+          }
+
+          const lastActiveText = admin.last_active
+            ? admin.last_active
+            : '<em style="color: #999;">Belum pernah</em>';
+          tr.innerHTML = `
+                        <td>${idx + 1}</td>
+                        <td style="font-weight: bold;">${admin.username}</td>
+                        <td>${emailText}</td>
+                        <td>${connectionStatus}</td>
+                        <td>${lastActiveText}</td>
+                        <td>${resetBtn}${deleteBtn}</td>
+                    `;
+          tbody.appendChild(tr);
+        });
+      } else {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: red;">Gagal memuat: ${data.message}</td></tr>`;
+      }
+    } catch (err) {
+      tbody.innerHTML =
+        '<tr><td colspan="6" style="text-align: center; color: red;">Terjadi kesalahan jaringan.</td></tr>';
+    }
+  }
+
+  async function handleAddAdmin(e) {
+    e.preventDefault();
+    const errorDiv = document.getElementById("addAdminError");
+    const btn = document.getElementById("btnSubmitAdmin");
+
+    errorDiv.style.display = "none";
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+
+    const username = document.getElementById("username").value;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const res = await fetch("/api/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast("Sukses", "Admin baru berhasil ditambahkan!", "success");
+        document.getElementById("addAdminForm").reset();
+        loadAdmins();
+      } else {
+        errorDiv.innerText = data.message;
+        errorDiv.style.display = "block";
+      }
+    } catch (err) {
+      errorDiv.innerText = "Terjadi kesalahan jaringan.";
+      errorDiv.style.display = "block";
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plus"></i> Tambahkan Akun';
+  }
+
+  let resettingAdminId = null;
+
+  function showResetPasswordModal(id, username) {
+    resettingAdminId = id;
+    document.getElementById('resetPasswordModalTitle').innerText = `Reset Password Admin: ${username}`;
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+    document.getElementById('resetPasswordError').style.display = 'none';
+    document.getElementById('resetPasswordModal').style.display = 'flex';
+  }
+
+  function closeResetPasswordModal() {
+    document.getElementById('resetPasswordModal').style.display = 'none';
+    resettingAdminId = null;
+  }
+
+  async function handleResetPassword() {
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const errorDiv = document.getElementById('resetPasswordError');
+    const btn = document.getElementById('btnResetPassword');
+
+    errorDiv.style.display = 'none';
+
+    if (newPassword !== confirmPassword) {
+      errorDiv.innerText = 'Password baru dan konfirmasi password tidak cocok!';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      errorDiv.innerText = 'Password harus memiliki minimal 6 karakter!';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+
+    try {
+      const res = await fetch(`/api/admins/${resettingAdminId}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast("Sukses", "Password berhasil direset!", "success");
+        closeResetPasswordModal();
+      } else {
+        errorDiv.innerText = data.message;
+        errorDiv.style.display = 'block';
+      }
+    } catch (err) {
+      errorDiv.innerText = "Terjadi kesalahan jaringan.";
+      errorDiv.style.display = 'block';
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-key"></i> Reset Password';
+  }
+
+  async function deleteAdmin(id, name) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus akun admin "${name}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admins/${id}`, { method: "DELETE" });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast("Sukses", "Admin berhasil dihapus.", "success");
+        loadAdmins();
+      } else {
+        showToast("Gagal", data.message, "error");
+      }
+    } catch (err) {
+      showToast("Kesalahan", "Terjadi kesalahan jaringan.", "error");
+    }
+  }
+</script>
+{% endblock %}

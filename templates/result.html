@@ -12,19 +12,20 @@
     <div class="step active"><div class="circle">6</div>Hasil</div>
 </div>
 
-<div class="card" style="text-align: center; padding: 40px 20px;">
+<!-- Result Summary Card -->
+<div class="card" style="text-align: center; padding: 40px 20px; margin-bottom: 20px;">
     <div id="resultIcon" style="font-size: 5rem; margin-bottom: 20px;"></div>
     <h2 id="resultTitle" style="margin-bottom: 20px;"></h2>
     
     <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 600px; margin: 0 auto 30px;">
-        <div class="stat-card" style="border-left-color: #4CAF50;">
+        <div class="stat-card" style="border-left: 4px solid #4CAF50;">
             <div class="stat-icon" style="color: #4CAF50;"><i class="fas fa-check"></i></div>
             <div class="stat-details">
                 <h3 id="rSuccess">0</h3>
                 <p>Berhasil Disimpan</p>
             </div>
         </div>
-        <div class="stat-card" style="border-left-color: #F44336;">
+        <div class="stat-card" style="border-left: 4px solid #F44336;">
             <div class="stat-icon" style="color: #F44336;"><i class="fas fa-times"></i></div>
             <div class="stat-details">
                 <h3 id="rFailed">0</h3>
@@ -33,49 +34,210 @@
         </div>
     </div>
     
-    <div style="display: flex; justify-content: center; gap: 15px;">
-        <a href="{{ url_for('dashboard_page') }}" class="btn btn-secondary"><i class="fas fa-home"></i> Kembali ke Dashboard</a>
-        <a href="{{ url_for('import_page') }}" class="btn btn-primary"><i class="fas fa-file-excel"></i> Import Data Baru</a>
+    <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+        <a href="{{ url_for('dashboard_page') }}" class="btn btn-secondary">
+            <i class="fas fa-home"></i> Kembali ke Dashboard
+        </a>
+        <a href="{{ url_for('import_page') }}" class="btn btn-primary">
+            <i class="fas fa-file-excel"></i> Import Data Baru
+        </a>
+    </div>
+</div>
+
+<!-- Error Detail Table (visible only when there are failures) -->
+<div id="errorSection" style="display: none;">
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <!-- Header -->
+        <div style="padding: 20px 28px; background: linear-gradient(135deg, #fff3e0, #ffe0b2); border-bottom: 2px solid #ffcc80; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; background: #ef6c00; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i class="fas fa-exclamation-triangle" style="color: white; font-size: 1.1rem;"></i>
+            </div>
+            <div>
+                <h3 style="margin: 0; color: #bf360c; font-size: 1.1rem;">Penjelasan Data Gagal</h3>
+                <p style="margin: 0; color: #e64a19; font-size: 0.85rem;">Berikut baris-baris yang tidak dapat disimpan beserta alasannya</p>
+            </div>
+            <span id="errorCount" style="margin-left: auto; background: #ef6c00; color: white; padding: 5px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700;"></span>
+        </div>
+
+        <!-- Category Summary Pills -->
+        <div id="categorySummary" style="padding: 16px 28px; background: #fffbf7; border-bottom: 1px solid #ffe0b2; display: flex; flex-wrap: wrap; gap: 8px;"></div>
+
+        <!-- Table -->
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; margin: 0;">
+                <thead>
+                    <tr style="background: #fbe9e7;">
+                        <th style="padding: 12px 16px; text-align: center; color: #bf360c; font-size: 0.85rem; white-space: nowrap; border-bottom: 2px solid #ffcc80; width: 60px;">
+                            <i class="fas fa-hashtag"></i> Baris
+                        </th>
+                        <th style="padding: 12px 16px; text-align: left; color: #bf360c; font-size: 0.85rem; border-bottom: 2px solid #ffcc80;">
+                            <i class="fas fa-user"></i> Nama
+                        </th>
+                        <th style="padding: 12px 16px; text-align: left; color: #bf360c; font-size: 0.85rem; border-bottom: 2px solid #ffcc80; white-space: nowrap;">
+                            <i class="fas fa-id-card"></i> NISN / NIP
+                        </th>
+                        <th style="padding: 12px 16px; text-align: left; color: #bf360c; font-size: 0.85rem; border-bottom: 2px solid #ffcc80;">
+                            <i class="fas fa-tag"></i> Kategori
+                        </th>
+                        <th style="padding: 12px 16px; text-align: left; color: #bf360c; font-size: 0.85rem; border-bottom: 2px solid #ffcc80;">
+                            <i class="fas fa-info-circle"></i> Alasan Gagal
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="errorTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer note -->
+        <div style="padding: 14px 28px; background: #fff8f5; border-top: 1px solid #ffe0b2; font-size: 0.82rem; color: #888; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-info-circle" style="color: #ffb74d;"></i>
+            Data yang gagal <strong>tidak disimpan ke database</strong>. Perbaiki file Excel Anda lalu import ulang.
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    // Category badge colors
+    const CATEGORY_COLORS = {
+        'Data Kosong':  { bg: '#fff3e0', text: '#ef6c00', border: '#ffcc80', icon: 'fa-minus-circle' },
+        'Format Salah': { bg: '#fce4ec', text: '#c62828', border: '#f48fb1', icon: 'fa-exclamation-circle' },
+        'Duplikat':     { bg: '#e8eaf6', text: '#283593', border: '#9fa8da', icon: 'fa-copy' },
+        'Lainnya':      { bg: '#f3e5f5', text: '#6a1b9a', border: '#ce93d8', icon: 'fa-question-circle' },
+    };
+
+    function getCategoryStyle(cat) {
+        return CATEGORY_COLORS[cat] || CATEGORY_COLORS['Lainnya'];
+    }
+
+    function categoryBadge(cat) {
+        const s = getCategoryStyle(cat);
+        return `<span style="
+            display: inline-flex; align-items: center; gap: 5px;
+            background: ${s.bg}; color: ${s.text}; border: 1px solid ${s.border};
+            padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+        "><i class="fas ${s.icon}"></i> ${cat}</span>`;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
         const state = getSessionData();
-        const res = state.result;
-        
-        // If no result data, show error
+        const res   = state.result;
+
+        // If no result data at all
         if (!res) {
-            document.getElementById('resultIcon').innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #FF9800;"></i>';
+            document.getElementById('resultIcon').innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#FF9800;"></i>';
             document.getElementById('resultTitle').innerText = 'Data hasil tidak ditemukan. Silakan ulangi proses import.';
             document.getElementById('resultTitle').style.color = '#FF9800';
             return;
         }
-        
+
+        // Fill counters
         document.getElementById('rSuccess').innerText = res.berhasil || 0;
-        document.getElementById('rFailed').innerText = res.gagal || 0;
-        
-        const icon = document.getElementById('resultIcon');
+        document.getElementById('rFailed').innerText  = res.gagal   || 0;
+
+        // Status icon & title
+        const icon  = document.getElementById('resultIcon');
         const title = document.getElementById('resultTitle');
-        
+
         if (res.status === 'Success') {
-            icon.innerHTML = '<i class="fas fa-check-circle" style="color: #4CAF50;"></i>';
-            title.innerText = 'Import Data Berhasil Keseluruhan!';
-            title.style.color = '#4CAF50';
+            icon.innerHTML      = '<i class="fas fa-check-circle" style="color:#4CAF50;"></i>';
+            title.innerText     = 'Import Data Berhasil Keseluruhan!';
+            title.style.color   = '#4CAF50';
         } else if (res.status === 'Partial') {
-            icon.innerHTML = '<i class="fas fa-exclamation-circle" style="color: #FF9800;"></i>';
-            title.innerText = 'Import Data Selesai Sebagian';
-            title.style.color = '#FF9800';
+            icon.innerHTML      = '<i class="fas fa-exclamation-circle" style="color:#FF9800;"></i>';
+            title.innerText     = 'Import Selesai — Sebagian Data Gagal';
+            title.style.color   = '#FF9800';
         } else {
-            icon.innerHTML = '<i class="fas fa-times-circle" style="color: #F44336;"></i>';
-            title.innerText = 'Import Data Gagal!';
-            title.style.color = '#F44336';
+            icon.innerHTML      = '<i class="fas fa-times-circle" style="color:#F44336;"></i>';
+            title.innerText     = 'Import Data Gagal!';
+            title.style.color   = '#F44336';
         }
-        
-        // Clear session so they can't go back and re-submit easily
+
+        // ── Fetch error details from log ──────────────────
+        const logId = res.log_id;
+        if (logId && (res.gagal > 0)) {
+            try {
+                const response  = await fetch(`/api/logs`);
+                const data      = await response.json();
+
+                if (data.success) {
+                    // Find the log entry that matches our log_id
+                    const logEntry = data.data.find(l => l.id === logId);
+                    const invalidRows = (logEntry && logEntry.invalid_rows_data) ? logEntry.invalid_rows_data : [];
+
+                    if (invalidRows.length > 0) {
+                        renderErrorTable(invalidRows);
+                    }
+                }
+            } catch (e) {
+                console.warn('Tidak dapat memuat detail error:', e);
+            }
+        }
+
+        // Clear session so they can't go back and re-submit
         sessionStorage.clear();
     });
+
+    function renderErrorTable(rows) {
+        const section = document.getElementById('errorSection');
+        const tbody   = document.getElementById('errorTableBody');
+        const countEl = document.getElementById('errorCount');
+        const catSum  = document.getElementById('categorySummary');
+
+        section.style.display = 'block';
+        countEl.innerText = `${rows.length} baris gagal`;
+
+        // Count categories
+        const catCounts = {};
+        rows.forEach(r => {
+            const cats = (r.category || 'Lainnya').split(',').map(c => c.trim());
+            cats.forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
+        });
+
+        // Render category summary pills
+        catSum.innerHTML = '<span style="font-size:0.82rem; color:#888; align-self:center; margin-right:4px;">Kategori:</span>' +
+            Object.entries(catCounts).map(([cat, count]) => {
+                const s = getCategoryStyle(cat);
+                return `<span style="
+                    display: inline-flex; align-items: center; gap: 6px;
+                    background: ${s.bg}; color: ${s.text}; border: 1px solid ${s.border};
+                    padding: 5px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 600;
+                "><i class="fas ${s.icon}"></i> ${cat} <strong>(${count})</strong></span>`;
+            }).join('');
+
+        // Render table rows
+        tbody.innerHTML = rows.map((r, idx) => {
+            const cats = (r.category || 'Lainnya').split(',').map(c => c.trim());
+            const catBadges = cats.map(categoryBadge).join(' ');
+            const rowBg = idx % 2 === 0 ? '#fff' : '#fffaf8';
+
+            return `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid #f5e6dc; transition: background 0.15s;">
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="
+                        display: inline-flex; align-items: center; justify-content: center;
+                        width: 32px; height: 32px; border-radius: 8px;
+                        background: #fbe9e7; color: #c62828; font-weight: 700; font-size: 0.85rem;
+                    ">${r.row || '-'}</span>
+                </td>
+                <td style="padding: 12px 16px; color: #333; font-weight: 500;">
+                    ${r.name && r.name !== '-' ? r.name : '<span style="color:#bbb; font-style:italic;">—</span>'}
+                </td>
+                <td style="padding: 12px 16px;">
+                    ${r.key && r.key !== '-'
+                        ? `<code style="background: #f5f5f5; color: #555; padding: 3px 8px; border-radius: 6px; font-size: 0.85rem;">${r.key}</code>`
+                        : '<span style="color:#bbb; font-style:italic;">—</span>'
+                    }
+                </td>
+                <td style="padding: 12px 16px;">${catBadges}</td>
+                <td style="padding: 12px 16px; color: #555; font-size: 0.9rem; line-height: 1.4;">
+                    <i class="fas fa-arrow-right" style="color: #ef6c00; font-size: 0.75rem; margin-right: 5px;"></i>
+                    ${r.error || '—'}
+                </td>
+            </tr>`;
+        }).join('');
+    }
 </script>
 {% endblock %}
