@@ -1,0 +1,56 @@
+# ======================================
+# .dockerignore - Sistem Pesantren
+# ======================================
+# File dan folder yang TIDAK perlu masuk ke Docker image
+
+# Virtual environments
+.venv
+.venv312
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# Zip files (backup)
+*.zip
+
+# Git
+.git/
+.gitignore
+
+# Environment variables (JANGAN upload ke container!)
+.env
+
+# Database lokal (akan dibuat ulang di cloud)
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Upload files (sebaiknya pakai Cloud Storage)
+uploads/*
+!uploads/.gitkeep
+
+# Log files
+*.log
+server.err.log
+server.out.log
+
+# VS Code settings
+.vscode/
+
+# Agents & brain data
+.agents/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.tmp

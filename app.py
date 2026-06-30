@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import uuid
 import math
@@ -1016,4 +1016,6 @@ def api_change_password():
     return jsonify({'success': True, 'message': 'Password berhasil diubah! Silakan login kembali.'})
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    import os
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)
